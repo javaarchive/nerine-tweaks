@@ -347,10 +347,12 @@ pub async fn deploy_challenge(
         .await?;
     _docker_guard.network(&network_name);
 
-    // 5.2. pull the container image
-    chall_data.pull(&ctx).await?;
+    // 5.2. pull the container image if registry is configured properly
+    if host_keychain.docker.docker_credentials.is_some() {
+        chall_data.pull(&ctx).await?;
 
-    debug!("pulled image, creating...");
+        debug!("pulled image, creating...");
+    }
 
     for (ct, chall_container) in chall_containers {
         // 4. calculate the container name

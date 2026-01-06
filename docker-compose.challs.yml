@@ -1,0 +1,18 @@
+# Production challs docker compose file
+# IMPORTANT: Ensure you have configured the docker daemon the machine as appropriate.
+# have keys, docker, and caddyrouter folder in the current directory
+
+services:
+  caddy:
+    build: ./caddyrouter
+    restart: unless-stopped
+    network_mode: host # allows proxying to all container networks
+    command: /usr/bin/caddy run --environ --config /etc/caddy/config.json
+    volumes:
+      - ./docker/caddy_daisychain.json:/etc/caddy/config.json:ro
+      - ./keys/caddy/ca.pem:/var/lib/caddy/ca.pem:ro
+      - ./keys/caddy/cert.pem:/var/lib/caddy/cert.pem:ro 
+      - ./keys/caddy/ca-key.pem:/var/lib/caddy/ca-key.pem:ro
+      - ./docker/caddy/data:/data
+      - ./docker/caddy/logs:/var/log/caddy
+    # env_file: .env

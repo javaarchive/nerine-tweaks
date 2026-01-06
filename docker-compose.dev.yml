@@ -1,0 +1,66 @@
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:3333:3333
+    volumes:
+      - ./event.toml:/app/event.toml:ro
+    environment:
+      RUST_LOG: debug
+      CORS_ORIGIN: "http://nerine.localhost"
+      DATABASE_URL: postgres://postgres:postgres@db/nerine
+      JWT_SECRET: ZXhhbXBsZV9zZWNyZXQK
+      ADMIN_TOKEN: example_admin_token
+      DEPLOYER_BASE: http://deployer:3001
+      EVENT_PATH: /app/event.toml
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:3334:3334
+    environment:
+      HOST: 0.0.0.0
+      PUBLIC_API_BASE: "http://api:3333/api"
+  deployer:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.deployer
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:3001:3001
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./keys:/app/keys:ro
+      - ./docker/challenges:/app/challenges
+    environment:
+      RUST_LOG: debug
+      DATABASE_URL: postgres://postgres:postgres@db/nerine
+      HOST_KEYCHAINS: /app/keys/keychain.json
+      CHALLENGES_DIR: /app/challenges
+    depends_on:
+      - db
+  db:
+    image: postgres
+    restart: unless-stopped
+    shm_size: 128mb
+    # temp
+    #ports:
+    #  - 127.0.0.1:5432:5432
+    environment:
+      POSTGRES_DB: nerine
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./docker/database:/var/lib/postgresql # note: this is a thing you need to do for newer Postgres 18 I think?
+  # unified caddy
+  caddy:
+    build: ./caddyrouter
+    restart: unless-stopped
+    network_mode: host # allows proxying to all container networks
+    command: /usr/bin/caddy run --environ --config /etc/caddy/config.json
+    volumes:
+      - ./docker/caddy.json:/etc/caddy/config.json:ro
+      - ./keys/caddy/ca.pem:/var/lib/caddy/ca.pem:ro
+      - ./keys/caddy/cert.pem:/var/lib/caddy/cert.pem:ro 
+      - ./keys/caddy/ca-key.pem:/var/lib/caddy/ca-key.pem:ro
+      - ./docker/caddy/data:/data

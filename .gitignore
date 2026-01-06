@@ -1,2 +1,12 @@
 /target
 .env
+
+
+*-test.sh
+
+keychain.json
+
+/keys
+/caddy
+/docker
+/database

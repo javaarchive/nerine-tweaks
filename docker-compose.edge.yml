@@ -1,0 +1,71 @@
+# bleeding edge docker compose file for platform server
+# This is useful if you git clone and then docker compose things
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:3333:3333
+    volumes:
+      - ./event.toml:/app/event.toml:ro
+    environment:
+      DEPLOYER_BASE: http://deployer:3001
+      EVENT_PATH: /app/event.toml
+    env_file:
+      - .env
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:3334:3334
+    environment:
+      HOST: 0.0.0.0
+      PUBLIC_API_BASE: "http://api:3333/api"
+  deployer:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.deployer
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:3001:3001
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./keys:/app/keys:ro
+      - ./docker/challenges:/app/challenges
+    environment:
+      HOST_KEYCHAINS: /app/keys/keychain.json
+      CHALLENGES_DIR: /app/challenges
+    env_file:
+      - .env
+    depends_on:
+      - db
+  db:
+    image: postgres
+    restart: unless-stopped
+    shm_size: 128mb
+    # temp
+    #ports:
+    #  - 127.0.0.1:5432:5432
+    environment:
+      POSTGRES_DB: nerine
+    env_file:
+      - .env
+    volumes:
+      - ./docker/database:/var/lib/postgresql # note: this is a thing you need to do for newer Postgres 18 I think?
+  # unified caddy
+  caddy:
+    # we don't use our custom caddy module but this is useful for cloudflare support
+    build: ./caddyrouter
+    restart: unless-stopped
+    network_mode: host # allows proxying to all container networks
+    command: /usr/bin/caddy run --environ --config /etc/caddy/Caddyfile
+    volumes:
+      - ./docker/Caddyfile.platform:/etc/caddy/Caddyfile:ro
+      - ./keys/caddy/ca.pem:/var/lib/caddy/ca.pem:ro
+      - ./keys/caddy/cert.pem:/var/lib/caddy/cert.pem:ro 
+      - ./keys/caddy/ca-key.pem:/var/lib/caddy/ca-key.pem:ro
+      - ./docker/caddy/data:/data
+      - ./docker/caddy/logs:/var/log/caddy
+    # not actually needed but may be useful if you have ssl secrets you want to pass in via env
+    env_file:
+      - .env

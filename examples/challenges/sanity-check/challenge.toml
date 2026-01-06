@@ -1,0 +1,8 @@
+id = "misc-sanity-check"
+name = "sanity-check"
+author = "someone"
+description = "type nerineCTF{flag} as flag"
+category = "misc"
+points.min = 10
+points.max = 10
+flag = "nerineCTF{flag}"

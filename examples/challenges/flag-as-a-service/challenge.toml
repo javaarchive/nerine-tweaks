@@ -1,0 +1,24 @@
+id = "flag-as-a-service"
+name = "Flag as a Service"
+author = "someone"
+description = "checking your browser."
+category = "web"
+points.min = 50
+points.max = 500
+flag = "nerineCTF{200_flag_f0und}"
+strategy = "instanced"
+
+[container.default]
+build = "chall/"
+limits.mem = 524288000
+
+[container.default.expose]
+3000 = "http"
+
+[container.default.env]
+ENV_TEST = "test"
+PORT = "3000"
+
+#[[provide]]
+#dir = "dist/"
+#as = "dist"

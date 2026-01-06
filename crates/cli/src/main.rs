@@ -51,6 +51,10 @@ enum Commands {
         /// Exits without building if there are any toml parse errors
         #[arg(short, long)]
         strict: bool,
+
+        /// Skip pushing to registry. Useful if the cli is running on the same docker daemon as the deployer.
+        #[arg(short, long, default_value_t = false)]
+        local: bool,
     },
 
     Platform {
@@ -267,6 +271,7 @@ async fn main() -> Result<()> {
             build_group,
             all,
             strict,
+            local,
         } => {
             let valid_challs: Vec<DeployableChallenge> = get_all_challs(&paths)
                 .filter(|c| c.chall.container.is_some())
@@ -280,14 +285,19 @@ async fn main() -> Result<()> {
             let ctx = DeployableContext {
                 docker: bollard::Docker::connect_with_local_defaults()?,
                 // TODO if something not found, default to None
-                docker_credentials: Some(DockerCredentials {
-                    username: Some(env::var("DOCKER_USERNAME")?),
-                    password: Some(env::var("DOCKER_PASSWORD")?),
-                    email: None,
-                    serveraddress: Some(env::var("DOCKER_SERVERADDRESS")?),
-                    ..Default::default()
-                }),
-                // docker_credentials: None,
+                docker_credentials: {
+                    if local {
+                        None
+                    } else {
+                        Some(DockerCredentials {
+                            username: Some(env::var("DOCKER_USERNAME")?),
+                            password: Some(env::var("DOCKER_PASSWORD")?),
+                            email: None,
+                            serveraddress: Some(env::var("DOCKER_SERVERADDRESS")?),
+                            ..Default::default()
+                        })
+                    }
+                },
                 image_prefix: "".to_string(),
                 repo: env::var("DOCKER_REPO")?,
             };
@@ -295,11 +305,17 @@ async fn main() -> Result<()> {
             for chall in valid_challs {
                 println!("building chall {}", chall.chall.id);
                 // TODO i suspect this might not be working
-                chall.pull(&ctx).await?;
+                if !local {
+                    chall.pull(&ctx).await?;
+                }
                 match chall.build(&ctx).await {
                     Ok(_) => {
-                        println!("pushing chall {}", chall.chall.id);
-                        chall.push(&ctx).await?;
+                        if !local {
+                            println!("pushing chall {}", chall.chall.id);
+                            chall.push(&ctx).await?;
+                        } else {
+                            println!("skipping pushing chall {} due to local flag", chall.chall.id);
+                        }
                     }
                     Err(e) => eprintln!("failed to build {}: {e:?}", chall.chall.id),
                 };
@@ -433,7 +449,7 @@ async fn main() -> Result<()> {
                     .send()
                     .await?
                     .error_for_status()?;
-                println!("reloaded deployer")
+                println!("reloaded deployer with {} chall(s)", challs_json.len())
             }
         },
     }

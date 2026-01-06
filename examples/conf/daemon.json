@@ -1,0 +1,14 @@
+{
+  "hosts": ["tcp://0.0.0.0:996", "unix:///var/run/docker.sock"],
+  "tls": true,
+  "tlscacert": "/var/docker/ca.pem",
+  "tlscert": "/var/docker/server-cert.pem",
+  "tlskey": "/var/docker/server-key.pem",
+  "tlsverify": true,
+  "default-address-pools": [
+    {
+      "base" : "172.17.0.0/12",
+      "size" : 24
+    }
+  ]
+}
