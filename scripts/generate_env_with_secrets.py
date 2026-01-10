@@ -11,9 +11,9 @@ def env_boolean(name: str) -> bool:
     if name in os.environ:
         return os.environ[name].lower() in ("1", "true", "yes")
 
-db_password = secrets.token_urlsafe(32)
-admin_token = secrets.token_urlsafe(32)
-jwt_secret = secrets.token_urlsafe(32)
+db_password = secrets.token_hex(32)
+admin_token = secrets.token_hex(32)
+jwt_secret = secrets.token_hex(32)
 
 platform_domain = os.environ.get("PLATFORM_DOMAIN", None)
 enable_https_platform = env_boolean("ENABLE_HTTPS_PLATFORM")

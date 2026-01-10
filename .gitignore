@@ -10,3 +10,7 @@ keychain.json
 /caddy
 /docker
 /database
+
+# remote testing
+prod.env
+staging.env

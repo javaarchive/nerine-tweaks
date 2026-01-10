@@ -5,6 +5,9 @@ mod challenges;
 mod leaderboard;
 mod profile;
 
+// TODO: is this really how we want to import the team struct into admin?
+pub use auth::Team;
+
 pub fn router() -> Router<crate::State> {
     Router::new()
         .nest("/admin", crate::admin::router())

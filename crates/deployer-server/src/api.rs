@@ -56,6 +56,7 @@ impl TryInto<ChallengeDeployment> for ChallengeDeploymentRow {
 struct ChallengeDeploymentReq {
     challenge_id: i32,
     team_id: Option<i32>,
+    lifetime: Option<u64>,
 }
 
 async fn deploy_challenge(
@@ -94,6 +95,7 @@ async fn deploy_challenge(
     state.tasks.spawn(deploy::deploy_challenge_task(
         state.clone(),
         deployment.clone(),
+        payload.lifetime.unwrap_or(60 * 10)
     ));
 
     Ok(Json(deployment.sanitize()))

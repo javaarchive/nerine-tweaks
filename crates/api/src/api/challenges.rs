@@ -222,6 +222,7 @@ pub async fn submit(
 struct ChallengeDeploymentReq {
     challenge_id: i32,
     team_id: Option<i32>,
+    lifetime: Option<u64>, // TODO: this is annoying that it has to be set ot None on destroy
 }
 // keep in sync with deployer-server/api
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -287,6 +288,7 @@ WHERE teams.public_id = $1 AND challenges.public_id = $2 AND challenges.visible 
         .json(&ChallengeDeploymentReq {
             challenge_id: record.challenge_id,
             team_id: Some(record.team_id),
+            lifetime: Some(state.config.instance_lifetime),
         })
         .send()
         .await?
@@ -325,6 +327,7 @@ WHERE teams.public_id = $1 AND challenges.public_id = $2;"#,
         .json(&ChallengeDeploymentReq {
             challenge_id: record.challenge_id,
             team_id: Some(record.team_id),
+            lifetime: None
         })
         .send()
         .await?

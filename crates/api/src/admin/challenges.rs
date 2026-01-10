@@ -265,6 +265,7 @@ async fn list_categories(StateE(state): StateE<State>, _: Admin) -> Result<Json<
 struct ChallengeDeploymentReq {
     challenge_id: i32,
     team_id: Option<i32>,
+    // I mean technically "lifetime: Option<u64>" should be here but it's compatible without
 }
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ChallengeDeployment {

@@ -49,6 +49,9 @@ pub struct Config {
 
     #[envconfig(from = "BLOODBOT_DISCORD_WEBHOOK_URL")]
     pub bloodbot_discord_webhook_url: Option<String>,
+
+    #[envconfig(from = "INSTANCE_LIFETIME", default = "600")]
+    pub instance_lifetime: u64,
 }
 
 pub struct StateInner {

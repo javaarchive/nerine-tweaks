@@ -45,6 +45,8 @@ pub struct ResendTokenRequest {
     pub email: String,
 }
 
+
+
 async fn register(
     StateE(state): StateE<State>,
     Json(payload): Json<TeamInfo>,

@@ -15,8 +15,8 @@ use deployer_common::challenge::{
 };
 use dialoguer::{Select, theme::SimpleTheme};
 use eyre::{Result, eyre};
-use google_cloud_storage::client::{Client as GcsClient, ClientConfig};
-use reqwest::{Client, Url, cookie::Jar};
+use google_cloud_storage::client::{self, Client as GcsClient, ClientConfig};
+use reqwest::{Url, cookie::Jar};
 use rustyline::DefaultEditor;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -75,6 +75,26 @@ enum PlatformCommands {
         #[arg(short = 'n', long)]
         null_attachments: bool,
     },
+    Reap,
+    CreateTeam {
+        #[arg(short, long)]
+        name: String,
+        #[arg(short, long)]
+        email: String,
+        #[arg(short, long)]
+        division: Option<String>,
+    },
+    Impersonate {
+        /// Team name to impersonate
+        #[arg(short, long)]
+        name: Option<String>,
+        /// Team email to impersonate
+        #[arg(short, long)]
+        email: Option<String>,
+        /// Token expiration in days (default: 30)
+        #[arg(short, long)]
+        token_expiration: Option<String>,
+    },
 }
 // todo case sensitive or not?
 fn search_for(dir: &Path, filenames: &[&str]) -> Option<PathBuf> {
@@ -129,6 +149,26 @@ async fn main() -> Result<()> {
     env_logger::init();
     _ = dotenvy::dotenv(); // we don't care whether its there or not
     let args = Cli::parse();
+
+    // maybe move this out of main?
+    fn get_platform_base() -> Result<String> {
+        Ok(env::var("PLATFORM_BASE")?)
+    }
+
+    fn get_admin_client() -> Result<reqwest::Client> {
+        let platform_base = get_platform_base()?;
+        let jar = Jar::default();
+        jar.add_cookie_str(
+            &format!("admin_token={}", env::var("PLATFORM_ADMIN_TOKEN")?),
+            &Url::parse(&platform_base)?,
+        );
+        let client = reqwest::Client::builder()
+            .cookie_provider(Arc::new(jar))
+            .build()?;
+        
+        Ok(client)
+    }
+
     match args.command {
         Commands::Init { mut path } => {
             // TODO currently it doesn't know what the challenges root is.
@@ -270,7 +310,7 @@ async fn main() -> Result<()> {
             paths,
             build_group,
             all,
-            strict,
+            strict: _,
             local,
         } => {
             let valid_challs: Vec<DeployableChallenge> = get_all_challs(&paths)
@@ -350,15 +390,9 @@ async fn main() -> Result<()> {
                     pub group_id: Option<i32>,
                 }
 
-                let platform_base = env::var("PLATFORM_BASE")?;
-                let jar = Jar::default();
-                jar.add_cookie_str(
-                    &format!("admin_token={}", env::var("PLATFORM_ADMIN_TOKEN")?),
-                    &Url::parse(&platform_base)?,
-                );
-                let client = reqwest::Client::builder()
-                    .cookie_provider(Arc::new(jar))
-                    .build()?;
+                let client = get_admin_client()?;
+                let platform_base = get_platform_base()?;
+
                 let mut categories: HashMap<String, i32> = client
                     .get(format!("{platform_base}/api/admin/challs/category"))
                     .send()
@@ -450,6 +484,77 @@ async fn main() -> Result<()> {
                     .await?
                     .error_for_status()?;
                 println!("reloaded deployer with {} chall(s)", challs_json.len())
+            }
+            PlatformCommands::Reap => {
+                let client = get_admin_client()?;
+                let platform_base = get_platform_base()?;
+                
+                let response = client
+                    .delete(format!("{platform_base}/api/admin/challs/reap"))
+                    .send()
+                    .await?
+                    .error_for_status()?;
+                
+                let result: String = response.json().await?;
+                println!("Reap completed: {}", result);
+            }
+            PlatformCommands::CreateTeam { name, email, division } => {
+                #[derive(Serialize)]
+                struct CreateTeamRequest {
+                    name: String,
+                    email: String,
+                    division: Option<String>,
+                }
+
+                let client = get_admin_client()?;
+                let platform_base = get_platform_base()?;
+                
+                let response = client
+                    .post(format!("{platform_base}/api/admin/auth/create_team"))
+                    .json(&CreateTeamRequest {
+                        name,
+                        email,
+                        division,
+                    })
+                    .send()
+                    .await?
+                    .error_for_status()?;
+                
+                let team: Value = response.json().await?;
+                println!("Team created successfully: {}", serde_json::to_string_pretty(&team)?);
+            }
+            PlatformCommands::Impersonate { name, email, token_expiration } => {
+                
+                if name.is_none() && email.is_none() {
+                    return Err(eyre!("either name or email must be provided"));
+                }
+                
+                #[derive(Serialize)]
+                struct ImpersonateTeamRequest {
+                    name: Option<String>,
+                    email: Option<String>,
+                    token_expiration: Option<String>,
+                }
+
+                let client = get_admin_client()?;
+                let platform_base = get_platform_base()?;
+                
+                let response = client
+                    .post(format!("{platform_base}/api/admin/auth/impersonate_team"))
+                    .json(&ImpersonateTeamRequest {
+                        name,
+                        email,
+                        token_expiration,
+                    })
+                    .send()
+                    .await?
+                    .error_for_status()?;
+                
+                let token: String = response.json().await?;
+                
+                println!("{}", token);
+                println!("Login with:");
+                println!("{platform_base}/login?token={token}");
             }
         },
     }

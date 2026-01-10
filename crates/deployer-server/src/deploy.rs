@@ -285,6 +285,7 @@ pub async fn deploy_challenge(
     state: State,
     tx: &mut sqlx::PgTransaction<'_>,
     chall: ChallengeDeployment,
+    container_lifetime: u64,
 ) -> eyre::Result<()> {
     // 1. find the public id of the challenge ("slug")
     // TODO(aiden): replace with query_scalar!
@@ -549,7 +550,7 @@ pub async fn deploy_challenge(
     let new_expiration_time = match chall_data.strategy {
         DeploymentStrategy::Static => None,
         DeploymentStrategy::Instanced => {
-            Some(chrono::Utc::now().naive_utc() + Duration::from_secs(60 * 10))
+            Some(chrono::Utc::now().naive_utc() + Duration::from_secs(container_lifetime))
         }
     };
 
@@ -588,9 +589,9 @@ pub async fn deploy_challenge(
     Ok(())
 }
 
-pub async fn deploy_challenge_task(state: State, chall: ChallengeDeployment) {
+pub async fn deploy_challenge_task(state: State, chall: ChallengeDeployment, container_lifetime: u64) {
     let mut tx = state.db.begin().await.unwrap();
-    if let Err(e) = deploy_challenge(state, &mut tx, chall.clone()).await {
+    if let Err(e) = deploy_challenge(state, &mut tx, chall.clone(), container_lifetime).await {
         error!("Failed to deploy challenge {:?}: {:?}", chall, e);
         sqlx::query!("DELETE FROM challenge_deployments WHERE id = $1", chall.id,)
             .execute(&mut *tx)

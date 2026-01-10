@@ -14,6 +14,13 @@ else
   platform_hostname="${platform_hostname:-nerine.localhost}"
 fi
 
+# Ask about auto HTTPS for platform
+read -p "Attempt auto HTTPS for platform? (y/N): " -r enable_https
+case "$enable_https" in
+  [Yy]* ) export ENABLE_HTTPS_PLATFORM=yes;;
+  * ) ;;
+esac
+
 if [ -n "$CHALLS_HOSTNAME" ]; then
   challs_hostname="$CHALLS_HOSTNAME"
   echo "Using hostname from environment: $challs_hostname"
@@ -202,8 +209,9 @@ EXTERNAL_IP=$challs_ip ADD_PLATFORM_ROUTES=1 python3 scripts/generate_caddy_conf
 echo "Generating caddy config for chall machine only..."
 EXTERNAL_IP=$challs_ip python3 scripts/generate_caddy_config.py $platform_hostname $challs_hostname ./keys > docker/caddy.json
 # extra config for daisychain use case, for hacky situations, do not rely on this.
-EXTERNAL_IP=$challs_ip BIND_IP=172.17.0.1 HTTP_PORT=8080 python3 scripts/generate_caddy_config.py $platform_hostname $challs_hostname ./keys > docker/caddy_daisychain.json
+EXTERNAL_IP=$challs_ip BIND_IP=172.17.0.1 HTTP_PORT=8080 TRUST_PROXY=yes python3 scripts/generate_caddy_config.py $platform_hostname $challs_hostname ./keys > docker/caddy_daisychain.json
 echo "Generating simple Caddyfile config..."
 python3 scripts/generate_simple_caddyfile_config.py $platform_hostname > docker/Caddyfile.platform
+python3 scripts/generate_env_with_secrets.py > .env
 echo "Done."
 echo "Go configure .env and make sure keys/keychain.json does what you want."

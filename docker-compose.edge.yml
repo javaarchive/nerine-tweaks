@@ -48,6 +48,7 @@ services:
     #  - 127.0.0.1:5432:5432
     environment:
       POSTGRES_DB: nerine
+      POSTGRES_USER: nerine
     env_file:
       - .env
     volumes:
@@ -57,7 +58,6 @@ services:
     # we don't use our custom caddy module but this is useful for cloudflare support
     build: ./caddyrouter
     restart: unless-stopped
-    network_mode: host # allows proxying to all container networks
     command: /usr/bin/caddy run --environ --config /etc/caddy/Caddyfile
     volumes:
       - ./docker/Caddyfile.platform:/etc/caddy/Caddyfile:ro
@@ -69,3 +69,8 @@ services:
     # not actually needed but may be useful if you have ssl secrets you want to pass in via env
     env_file:
       - .env
+    ports:
+      - 80:80
+      - 443:443
+      - 80:80/udp
+      - 443:443/udp
