@@ -1,0 +1,9 @@
+id = "misc-file-check"
+name = "file-check"
+author = "someone"
+description = "read the file"
+category = "misc"
+points.min = 10
+points.max = 10
+flag = "nerineCTF{0mg_f1l3}"
+provide = ["flag.txt"]

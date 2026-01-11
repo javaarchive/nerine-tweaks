@@ -5,6 +5,7 @@ use sqlx::postgres::PgPoolOptions;
 use tower_http::cors::{Any, CorsLayer};
 
 mod admin;
+mod attachments;
 mod api;
 mod badges;
 mod config;
@@ -46,6 +47,7 @@ async fn main() -> eyre::Result<()> {
         .nest("/api", api::router())
         .with_state(State::new(config::StateInner {
             email: email::EmailService::new(&cfg),
+            attachment_service: attachments::AttachmentService::new(&cfg),
             config: cfg,
             event,
             db: pool,

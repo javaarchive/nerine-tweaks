@@ -6,6 +6,7 @@ services:
       - 127.0.0.1:3333:3333
     volumes:
       - ./event.toml:/app/event.toml
+      - ./docker/attachments:/attachments
     environment:
       RUST_LOG: debug
       CORS_ORIGIN: "http://nerine.localhost"

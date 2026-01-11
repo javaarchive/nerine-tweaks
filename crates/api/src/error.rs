@@ -37,6 +37,12 @@ pub enum Error {
         "This is a generic error, you shouldn't recieve this is if you're a well behaved client!"
     )]
     GenericError,
+    #[error("Server misconfiguration error")]
+    ServerMisconfiguration,
+    #[error("Attachment not found")]
+    AttachmentNotFound,
+    #[error("Email not allowed")]
+    EmailNotAllowed,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -82,6 +88,9 @@ impl IntoResponse for Error {
             Error::WrongFlag => (StatusCode::BAD_REQUEST, "wrong_flag"),
             Error::TeamNameTaken => (StatusCode::BAD_REQUEST, "team_name_taken"),
             Error::GenericError => (StatusCode::BAD_REQUEST, "generic_error"),
+            Error::ServerMisconfiguration => (StatusCode::INTERNAL_SERVER_ERROR, "server_misconfiguration"),
+            Error::AttachmentNotFound => (StatusCode::NOT_FOUND, "attachment_not_found"),
+            Error::EmailNotAllowed => (StatusCode::FORBIDDEN, "email_not_allowed"),
         };
 
         (status, Json(ErrorResponse { error, message })).into_response()

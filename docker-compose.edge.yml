@@ -8,6 +8,7 @@ services:
       - 127.0.0.1:3333:3333
     volumes:
       - ./event.toml:/app/event.toml:ro
+      - ./docker/attachments:/attachments
     environment:
       DEPLOYER_BASE: http://deployer:3001
       EVENT_PATH: /app/event.toml

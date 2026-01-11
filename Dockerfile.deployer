@@ -1,4 +1,7 @@
-FROM lukemathwalker/cargo-chef@sha256:cf4bd956000c0b18613ce4e485e4a0c7719921fcc5e34ba0e7e08e3dfcff8964 AS chef
+# FROM lukemathwalker/cargo-chef@sha256:cf4bd956000c0b18613ce4e485e4a0c7719921fcc5e34ba0e7e08e3dfcff8964 AS chef
+# eqiv to FROM lukemathwalker/cargo-chef:latest-rust-1.92-trixie as chef
+FROM lukemathwalker/cargo-chef@sha256:8fb21d1ae66a52ecfcd45afa7cfc7c5154678ca654ff403436cb186fc1857b26 as chef
+
 WORKDIR /app
 
 FROM chef AS planner

@@ -31,6 +31,7 @@ pub struct EmailService {
     from_email: String,
     app_base_url: String,
     verification_tokens: Mutex<TimedSizedCache<String, PendingVerification>>,
+    email_domain_whitelist: Vec<String>,
 }
 
 impl EmailService {
@@ -52,6 +53,7 @@ impl EmailService {
             from_email: config.from_email.clone(),
             app_base_url: config.cors_origin.clone(), // :nauseated_face:
             verification_tokens: Mutex::new(TimedSizedCache::with_size_and_lifespan(1000, 600)),
+            email_domain_whitelist: config.email_domain_whitelist.clone().unwrap_or_default().split(',').map(|s| s.to_string()).collect(),
         }
     }
 
@@ -194,6 +196,14 @@ impl EmailService {
     }
 
     async fn send_email(&self, to_email: &str, subject: &str, body: &str) -> Result<()> {
+        
+        if !self.email_domain_whitelist.is_empty() {
+            let email_domain = to_email.split('@').last().unwrap();
+            if !self.email_domain_whitelist.contains(&email_domain.to_string()) {
+                return Err(crate::error::Error::EmailNotAllowed);
+            }
+        }
+        
         if let Some(ref mailer) = self.mailer {
             let email = Message::builder()
                 .from(

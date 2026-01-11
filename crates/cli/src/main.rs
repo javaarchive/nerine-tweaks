@@ -13,9 +13,9 @@ use deployer_common::challenge::{
     Challenge, Container, DeployableChallenge, DeployableContext, DeploymentStrategy, ExposeType,
     Flag, PointRange, is_valid_id,
 };
+use deployer_common::uploader::Uploader;
 use dialoguer::{Select, theme::SimpleTheme};
 use eyre::{Result, eyre};
-use google_cloud_storage::client::{self, Client as GcsClient, ClientConfig};
 use reqwest::{Url, cookie::Jar};
 use rustyline::DefaultEditor;
 use serde::{Deserialize, Serialize};
@@ -404,24 +404,16 @@ async fn main() -> Result<()> {
                     .map(|c| (c.name, c.id))
                     .collect();
 
-                let gcs_client = if null_attachments {
-                    None
-                } else {
-                    Some(GcsClient::new(
-                        ClientConfig::default().with_auth().await.unwrap(),
-                    ))
-                };
+                let uploader = Uploader::from_env().await;
+
                 for ref dc in get_all_challs(&paths).filter(|c| c.chall.build_group == build_group)
                 {
                     let DeployableChallenge { chall, root } = dc;
                     let attachments = if null_attachments {
                         HashMap::new()
                     } else {
-                        dc.push_attachments(
-                            gcs_client.as_ref().unwrap(),
-                            env::var("GCS_ATTACHMENTS_BUCKET")?,
-                        )
-                        .await?
+                        dc.push_attachments(&uploader)
+                            .await?
                     };
                     client
                         .patch(format!("{platform_base}/api/admin/challs"))

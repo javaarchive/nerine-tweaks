@@ -1,5 +1,6 @@
 use axum::Router;
 
+mod attachments;
 mod auth;
 mod challenges;
 mod leaderboard;
@@ -11,6 +12,7 @@ pub use auth::Team;
 pub fn router() -> Router<crate::State> {
     Router::new()
         .nest("/admin", crate::admin::router())
+        .nest("/attachments", attachments::router())
         .nest("/auth", auth::router())
         .nest("/challs", challenges::router())
         .nest("/event", crate::event::router())

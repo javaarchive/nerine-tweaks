@@ -3,7 +3,7 @@ use std::{str::FromStr, sync::Arc};
 use envconfig::Envconfig;
 use jsonwebtoken::{DecodingKey, EncodingKey};
 
-use crate::{email, event::Event, DB};
+use crate::{DB, attachments, email, event::Event};
 
 pub struct JwtKeys {
     pub encoding: EncodingKey,
@@ -52,6 +52,19 @@ pub struct Config {
 
     #[envconfig(from = "INSTANCE_LIFETIME", default = "600")]
     pub instance_lifetime: u64,
+
+    // enabling this will enable api endpoints for local attachment serving
+    // the cli needs to be aware of this    
+    // for docker it should be /attachments
+    #[envconfig(from = "LOCAL_ATTACHMENTS_DIRECTORY")]
+    pub local_attachments_directory: Option<String>,
+
+    // allow another server (e.g. caddy serve static) to serve attachments
+    #[envconfig(from = "LOCAL_ATTACHMENTS_BASE_SERVING_URL")]
+    pub local_attachments_base_serving_url: Option<String>,
+
+    #[envconfig(from = "EMAIL_DOMAIN_WHITELIST")]
+    pub email_domain_whitelist: Option<String>,
 }
 
 pub struct StateInner {
@@ -59,6 +72,7 @@ pub struct StateInner {
     pub event: Event,
     pub db: DB,
     pub email: email::EmailService,
+    pub attachment_service: attachments::AttachmentService,
 }
 
 impl AsRef<Config> for StateInner {

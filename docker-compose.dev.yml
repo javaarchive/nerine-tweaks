@@ -6,6 +6,8 @@ services:
       - 127.0.0.1:3333:3333
     volumes:
       - ./event.toml:/app/event.toml:ro
+      - ./docker/attachments:/attachments
+      # - ./target/release/nerine-api:/usr/local/bin/nerine-api:ro # faster api dev
     environment:
       RUST_LOG: debug
       CORS_ORIGIN: "http://nerine.localhost"
@@ -14,6 +16,7 @@ services:
       ADMIN_TOKEN: example_admin_token
       DEPLOYER_BASE: http://deployer:3001
       EVENT_PATH: /app/event.toml
+      LOCAL_ATTACHMENTS_DIRECTORY: /attachments
   frontend:
     build: ./frontend
     restart: unless-stopped
@@ -33,6 +36,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./keys:/app/keys:ro
       - ./docker/challenges:/app/challenges
+      # TODO: hacky bind mount here for binary when?
     environment:
       RUST_LOG: debug
       DATABASE_URL: postgres://postgres:postgres@db/nerine
@@ -59,7 +63,7 @@ services:
     network_mode: host # allows proxying to all container networks
     command: /usr/bin/caddy run --environ --config /etc/caddy/config.json
     volumes:
-      - ./docker/caddy.json:/etc/caddy/config.json:ro
+      - ./docker/caddy_dev_localhost.json:/etc/caddy/config.json:ro
       - ./keys/caddy/ca.pem:/var/lib/caddy/ca.pem:ro
       - ./keys/caddy/cert.pem:/var/lib/caddy/cert.pem:ro 
       - ./keys/caddy/ca-key.pem:/var/lib/caddy/ca-key.pem:ro

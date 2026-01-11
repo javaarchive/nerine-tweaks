@@ -205,6 +205,7 @@ echo "Edit it to add docker registry credentials if needed otherwise the local d
 
 echo "Generating caddy config..."
 mkdir -p docker
+EXTERNAL_IP=172.17.0.1 ENABLE_HTTPS_PLATFORM=no ADD_PLATFORM_ROUTES=1 python3 scripts/generate_caddy_config.py nerine.localhost challs.localhost ./keys > docker/caddy_dev_localhost.json
 EXTERNAL_IP=$challs_ip ADD_PLATFORM_ROUTES=1 python3 scripts/generate_caddy_config.py $platform_hostname $challs_hostname ./keys > docker/caddy_dev.json
 echo "Generating caddy config for chall machine only..."
 EXTERNAL_IP=$challs_ip python3 scripts/generate_caddy_config.py $platform_hostname $challs_hostname ./keys > docker/caddy.json

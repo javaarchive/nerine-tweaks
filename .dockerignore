@@ -1,4 +1,7 @@
 /target
 /frontend
+/caddy
+/docker
+/keys
 .env
 .git

@@ -1,11 +1,6 @@
 use bollard::query_parameters::CreateImageOptionsBuilder;
 use eyre::{Context, Result, eyre};
 use flate2::{Compression, write::GzEncoder};
-use google_cloud_storage::{
-    client::Client,
-    http::objects::upload::{Media, UploadObjectRequest, UploadType},
-    sign::SignedURLOptions,
-};
 use log::info;
 use serde_with::{DisplayFromStr, serde_as};
 use std::{
@@ -13,7 +8,6 @@ use std::{
     fs::{self, File as StdFile},
     io::Read,
     path::PathBuf,
-    time::Duration,
 };
 
 use futures_util::StreamExt;
@@ -21,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use tempdir::TempDir;
 use tokio::fs::File;
 use tokio_util::io::ReaderStream;
+
+use crate::uploader::Uploader;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Challenge {
@@ -390,8 +386,7 @@ impl DeployableChallenge {
 
     pub async fn push_attachments(
         &self,
-        client: &Client,
-        bucket: String,
+        uploader: &Uploader,
     ) -> Result<HashMap<String, String>> {
         if self.chall.provide.is_none() {
             return Ok(HashMap::new());
@@ -431,33 +426,7 @@ impl DeployableChallenge {
                 }
             };
 
-            let upload_type =
-                UploadType::Simple(Media::new(format!("{}/{}", self.chall.id, &name)));
-
-            let uploaded = client
-                .upload_object(
-                    &UploadObjectRequest {
-                        bucket: bucket.clone(),
-                        ..Default::default()
-                    },
-                    data,
-                    &upload_type,
-                )
-                .await?;
-
-            let url_for_download = client
-                .signed_url(
-                    &bucket,
-                    &uploaded.name,
-                    None,
-                    None,
-                    SignedURLOptions {
-                        expires: Duration::from_secs(604800),
-                        ..Default::default()
-                    },
-                )
-                .await?;
-
+            let url_for_download = uploader.upload(&self.chall.id, &name, data).await?;
             hm.insert(name, url_for_download);
         }
         return Ok(hm);

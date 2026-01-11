@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.8.3", features = ["macros"] }
+axum = { version = "0.8.3", features = ["macros", "multipart"] }
 axum-extra = { version = "0.10.1", features = ["cookie"] }
 chrono = { version = "0.4.40", features = ["serde"] }
 deployer-common = { path = "../deployer-common", package = "nerine-deployer-common" }
@@ -26,6 +26,7 @@ serde_json = "1.0.140"
 sqlx = { version = "0.8.5", features = ["chrono", "postgres", "runtime-tokio"] }
 thiserror = "2.0.12"
 tokio = { version = "1.44.2", features = ["rt-multi-thread", "signal"] }
+tokio-util = { version = "0.7.15", features = ["io"] }
 toml = "0.8.20"
 tower-http = { version = "0.6.4", features = ["cors"] }
 tracing = "0.1.41"
@@ -40,3 +41,4 @@ reqwest = { version = "0.12.20", default-features = false, features = [
 ] }
 tower_governor = "0.7.0"
 urlencoding = "2"
+futures-util = "0.3.31"
