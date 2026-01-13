@@ -1,5 +1,5 @@
 use axum::{
-    Json, Router, extract::{Multipart, Query, State as StateE}, http::StatusCode, routing::{get, post}
+    Json, Router, extract::{DefaultBodyLimit, Multipart, Query, State as StateE}, http::StatusCode, routing::{get, post}
 };
 use serde::{Deserialize, Serialize};
 use tokio::stream;
@@ -62,4 +62,5 @@ async fn upload_attachment(
 pub fn router() -> Router<State> {
     Router::new()
         .route("/upload", post(upload_attachment))
+        .layer(DefaultBodyLimit::disable()) // please upload sane sized attachments. this an admin endpoint so we don't enforce limits
 }
