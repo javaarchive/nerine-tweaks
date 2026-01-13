@@ -198,8 +198,11 @@ impl EmailService {
     async fn send_email(&self, to_email: &str, subject: &str, body: &str) -> Result<()> {
         
         if !self.email_domain_whitelist.is_empty() {
-            let email_domain = to_email.split('@').last().unwrap();
-            if !self.email_domain_whitelist.contains(&email_domain.to_string()) {
+            if let Some(email_domain) = to_email.split('@').last() {
+                if !self.email_domain_whitelist.contains(&email_domain.to_string()) {
+                    return Err(crate::error::Error::EmailNotAllowed);
+                }
+            } else {
                 return Err(crate::error::Error::EmailNotAllowed);
             }
         }

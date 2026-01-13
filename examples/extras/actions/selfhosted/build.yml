@@ -1,0 +1,84 @@
+# adapted version
+# drops a lot of env vars already predefined.
+name: Build challenges
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # make sure you don't accidentally have multiple on different machines for this
+    # TODO: use less vague name
+    runs-on: challenges
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v44
+        with:
+          files_separator: " "
+
+      - name: Download latest nerine-cli artifact
+        uses: dawidd6/action-download-artifact@v11
+        with:
+          name: nerine-cli-Linux-musl-x86_64.tar.gz
+          repo: ctf-gg/nerine
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: cli-build.yml
+
+      - name: Extract nerine-cli
+        run: |
+          tar xvf nerine-cli-Linux-musl-x86_64.tar.gz
+          chmod +x ./nerine-cli
+
+      - name: Build changed challenges
+        if: steps.changed-files.outputs.any_changed == 'true'
+        run: |
+          declare -A challenge_dirs
+
+          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+            echo "Processing file: $file"
+            
+            current_dir=$(dirname "$file")
+            
+            while [ "$current_dir" != "." ] && [ "$current_dir" != "/" ]; do
+              if [ -f "$current_dir/challenge.toml" ]; then
+                echo "Found challenge.toml in: $current_dir"
+                challenge_dirs["$current_dir"]=1
+                break
+              fi
+              current_dir=$(dirname "$current_dir")
+            done
+          done
+
+          challenge_paths=""
+          for dir in "${!challenge_dirs[@]}"; do
+            challenge_paths="$challenge_paths $dir"
+          done
+
+          if [ -n "$challenge_paths" ]; then
+            echo "Building challenges in directories:$challenge_paths"
+            ./nerine-cli build --local $challenge_paths
+          else
+            echo "No challenge directories found with challenge.toml files"
+          fi
+
+      - name: Update platform
+        if: steps.changed-files.outputs.any_changed == 'true'
+        run: ./nerine-cli platform update
+
+      - name: No changes detected
+        if: steps.changed-files.outputs.any_changed == 'false'
+        run: echo "No challenge files changed, skipping build"

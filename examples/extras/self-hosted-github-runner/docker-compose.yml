@@ -1,0 +1,26 @@
+# based off https://github.com/myoung34/docker-github-actions-runner/wiki/Usage#docker-compose
+version: '2.3'
+services:
+  worker:
+    image: myoung34/github-runner:debian-trixie # hopefully this is good enough? hopefully no new docker features
+    environment:
+      RUNNER_NAME: nerine-challenges-runner
+      RUNNER_WORKDIR: /srv/runner/work
+      CONFIGURED_ACTIONS_RUNNER_FILES_DIR: /runner/data # Required for persistence
+      DISABLE_AUTOMATIC_DEREGISTRATION: true
+      #RUNNER_GROUP: nerine # github enterprise only
+      RUNNER_SCOPE: 'org'
+      LABELS: linux,x64,nerine,challenges
+    env_file:
+      - .env
+    security_opt:
+      # needed on SELinux systems to allow docker container to manage other docker containers
+      - label:disable
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock'
+      - './runner_data:/runner/data' # required for persistence
+      - '/srv/runner:/srv/runner'
+    # IMPORTANT: uncomment this out put a single number with the gid of the docker group on the host
+    # If you don't know it the command is: getent group docker | cut -d: -f3
+    # group_add:
+      # -
