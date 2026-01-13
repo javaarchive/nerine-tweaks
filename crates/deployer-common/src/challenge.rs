@@ -397,7 +397,7 @@ impl DeployableChallenge {
             let (name, data) = match attachment {
                 Attachment::File(path) => {
                     let name = path.file_name().unwrap().to_str().unwrap().to_owned();
-                    let data = fs::read(self.root.join(file))?;
+                    let data = fs::read(self.root.join(path))?;
                     (name, data)
                 }
                 Attachment::Named { file, r#as } => {
