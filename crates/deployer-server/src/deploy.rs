@@ -716,3 +716,108 @@ pub async fn destroy_challenge_task(state: State, chall: ChallengeDeployment) {
         tx.commit().await.unwrap();
     }
 }
+
+// highly experimental!
+
+pub async fn start_challenge(
+    state: State,
+    tx: &mut sqlx::PgTransaction<'_>,
+    chall: ChallengeDeployment,
+) -> eyre::Result<()> {
+    if chall.destroyed_at.is_some() {
+        return Err(eyre!("Challenge has been destroyed"));
+    }
+
+    if !chall.deployed {
+        return Err(eyre!("Challenge is not deployed"));
+    }
+
+    // Check if challenge has less than 10 seconds remaining
+    if let Some(expired_at) = chall.expired_at {
+        let now = chrono::Utc::now().naive_utc();
+        let remaining = expired_at - now;
+        if remaining.num_seconds() < 10 {
+            return Err(eyre!("Challenge expires in less than 10 seconds, not starting"));
+        }
+    }
+
+    let Some(deploy_data) = &chall.data else {
+        return Err(eyre!("Challenge has no deployment data"));
+    };
+
+    // 1. find the public id of the challenge ("slug")
+    let public_chall_partial = sqlx::query!(
+        "SELECT public_id FROM challenges WHERE id = $1",
+        chall.challenge_id
+    )
+    .fetch_one(&mut **tx)
+    .await?;
+
+    // 2. find the challenge data for that slug
+    let chall_data = {
+        let rg = state.challenge_data.read().await;
+        rg.get(&public_chall_partial.public_id).map(Clone::clone)
+    }
+    .ok_or_else(|| {
+        eyre!(
+            "failed to get challenge data for {}",
+            public_chall_partial.public_id
+        )
+    })?;
+
+    // 3. ensure there is a container on it
+    let Some(chall_containers) = &chall_data.container else {
+        return Err(eyre!("challenge {} does not have container", chall_data.id));
+    };
+
+    // 4. connect to the appropriate docker socket
+    let host_keychain =
+        &state.config.host_keychains[chall_data.host.as_deref().unwrap_or("default")];
+    let ctx: DeployableContext = host_keychain.docker.clone().try_into()?;
+
+    for (ct, _chall_container) in chall_containers {
+        // calculate the container name
+        let container_name =
+            calculate_container_name(&chall_data.id, chall_data.strategy, ct, chall.team_id);
+
+        debug!("checking container: {}", container_name);
+
+        // check if container exists and is stopped
+        let container_info = ctx
+            .docker
+            .inspect_container(&container_name, None::<InspectContainerOptions>)
+            .await;
+
+        match container_info {
+            Ok(info) => {
+                let is_running = info
+                    .state
+                    .and_then(|s| s.running)
+                    .unwrap_or(false);
+
+                if !is_running {
+                    debug!("starting stopped container: {}", container_name);
+                    ctx.docker
+                        .start_container(&container_name, None::<StartContainerOptions>)
+                        .await?;
+                } else {
+                    debug!("container already running: {}", container_name);
+                }
+            }
+            Err(_) => {
+                return Err(eyre!("Container {} does not exist", container_name));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn start_challenge_task(state: State, chall: ChallengeDeployment) {
+    let mut tx = state.db.begin().await.unwrap();
+    if let Err(e) = start_challenge(state, &mut tx, chall.clone()).await {
+        error!("Failed to start challenge {:?}: {:?}", chall, e);
+    } else {
+        tx.commit().await.unwrap();
+    }
+}

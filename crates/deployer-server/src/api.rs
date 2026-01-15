@@ -65,14 +65,15 @@ async fn deploy_challenge(
 ) -> Result<Json<ChallengeDeployment>> {
     let mut tx = state.db.begin().await?;
 
-    if sqlx::query!(
-        "SELECT id FROM challenge_deployments WHERE team_id IS NOT DISTINCT FROM $1 and challenge_id = $2 AND destroyed_at IS NULL",
+    if let Some(challenge_deployment_row) = sqlx::query_as!(ChallengeDeploymentRow,"SELECT * FROM challenge_deployments WHERE team_id IS NOT DISTINCT FROM $1 and challenge_id = $2 AND destroyed_at IS NULL",
         payload.team_id,
         payload.challenge_id,
-    )
-        .fetch_optional(&mut *tx)
-        .await?
-        .is_some() {
+    ).fetch_optional(&mut *tx).await? {
+        // spawn experimental start task
+        let challenge_deployment: ChallengeDeployment = challenge_deployment_row.try_into()?;
+        state.tasks.spawn(deploy::start_challenge_task(state.clone(), challenge_deployment));
+        
+        // throw error
         return Err(crate::error::Error::AlreadyDeployed);
     }
 

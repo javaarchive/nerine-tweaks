@@ -1,0 +1,71 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM challenge_deployments WHERE team_id IS NOT DISTINCT FROM $1 and challenge_id = $2 AND destroyed_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "team_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "challenge_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "deployed",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "data",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 6,
+        "name": "expired_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 7,
+        "name": "destroyed_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 8,
+        "name": "public_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "470c5c019f2f06b1d147748fdf5be1ddac6d9e830d463d30529b9c74e2f54fb9"
+}
