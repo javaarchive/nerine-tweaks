@@ -53,7 +53,14 @@ impl EmailService {
             from_email: config.from_email.clone(),
             app_base_url: config.cors_origin.clone(), // :nauseated_face:
             verification_tokens: Mutex::new(TimedSizedCache::with_size_and_lifespan(1000, 600)),
-            email_domain_whitelist: config.email_domain_whitelist.clone().unwrap_or_default().split(',').map(|s| s.to_string()).collect(),
+            email_domain_whitelist: match config.email_domain_whitelist.clone() {
+                Some(whitelist_str) => {
+                    whitelist_str.split(',').map(|s| s.to_string()).collect()
+                },
+                None => {
+                    vec![]
+                },
+            }
         }
     }
 

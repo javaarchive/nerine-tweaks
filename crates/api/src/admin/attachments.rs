@@ -2,7 +2,7 @@ use axum::{
     Json, Router, extract::{DefaultBodyLimit, Multipart, Query, State as StateE}, http::StatusCode, routing::{get, post}
 };
 use serde::{Deserialize, Serialize};
-use tokio::stream;
+use tokio::{io::AsyncWriteExt, stream};
 use tokio_util::io::StreamReader;
 use futures_util::{Stream, TryStreamExt};
 
@@ -34,8 +34,18 @@ async fn upload_attachment(
     let dest_rel_path = params.path.clone().unwrap_or_else(|| ".".to_string());
     let mut results = Vec::new();
     while let Some(field) = multipart.next_field().await.unwrap() {
+        if field.name().is_none() {
+            // continue;
+            // bad client malformed
+            return Err(crate::error::Error::GenericError);
+        }
         let name = field.name().unwrap().to_string();
-        if let Some(upload_abs_path) = state.attachment_service.get_attachment_path(&format!("{dest_rel_path}/{name}")) {
+        let rel_path = format!("{dest_rel_path}/{name}");
+        if !state.attachment_service.check_path(&rel_path) {
+            log::warn!("Blocked admin attachment upload because path is not allowed: {:?}", field);
+            return Err(crate::error::Error::GenericError);
+        }
+        if let Some(upload_abs_path) = state.attachment_service.get_attachment_path(&rel_path) {
             if let Some(parent) = upload_abs_path.parent() {
                 if !parent.exists() {
                     // I hate this line, hopefully this never gets triggered
@@ -49,6 +59,7 @@ async fn upload_attachment(
             let mut writer = tokio::io::BufWriter::new(file);
 
             tokio::io::copy(&mut reader, &mut writer).await.map_err(|_| crate::error::Error::ServerMisconfiguration)?;
+            writer.flush().await.map_err(|_| crate::error::Error::ServerMisconfiguration)?;
             results.push(UploadResult {
                 url: state.attachment_service.attachments_serving_url.clone() + &format!("/{dest_rel_path}/{name}"),
             });
