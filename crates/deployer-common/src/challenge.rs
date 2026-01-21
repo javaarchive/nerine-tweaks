@@ -18,6 +18,7 @@ use tokio_util::io::ReaderStream;
 
 use crate::uploader::Uploader;
 
+// actual challenge format spec
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Challenge {
     pub id: String,
@@ -39,6 +40,7 @@ pub struct Challenge {
     #[serde(default, skip_serializing_if = "is_zero")]
     pub bump_seed: u64,
     pub host: Option<String>,
+    pub instance_lifetime: Option<u64>,
 }
 
 fn is_zero(x: &u64) -> bool {
