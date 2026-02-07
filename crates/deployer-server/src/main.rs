@@ -42,7 +42,6 @@ async fn main() -> eyre::Result<()> {
         db: pool.clone(),
         challenge_data: challs.into(),
         tasks: tt.clone(),
-        deployment_locks: Default::default(),
     });
 
     let inherited_containers = sqlx::query_as!(

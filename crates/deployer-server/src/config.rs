@@ -211,8 +211,6 @@ pub struct StateInner {
     pub challenge_data: RwLock<HashMap<String, Challenge>>,
     pub db: PgPool,
     pub tasks: TaskTracker,
-    // locks for challenge deployments keyed by (challenge_id, team_id)
-    pub deployment_locks: RwLock<HashMap<(i32, Option<i32>), Arc<tokio::sync::Mutex<()>>>>,
 }
 
 pub type State = Arc<StateInner>;

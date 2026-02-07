@@ -298,7 +298,6 @@ async fn main() -> Result<()> {
                 bump_seed: 0,
                 provide: None,
                 host: None,
-                instance_lifetime: None,
             };
 
             path.push("challenge.toml");

@@ -19,48 +19,6 @@ use serde_json::json;
 
 use crate::{State, api::ChallengeDeploymentRow, config::CaddyKeychain};
 
-async fn acquire_deployment_lock(
-    state: &State,
-    challenge_id: i32,
-    team_id: Option<i32>,
-) -> Arc<tokio::sync::Mutex<()>> {
-    let key = (challenge_id, team_id);
-    
-    // Try to get existing lock
-    {
-        let locks = state.deployment_locks.read().await;
-        if let Some(lock) = locks.get(&key) {
-            return lock.clone();
-        }
-    }
-    
-    // Create new lock if it doesn't exist
-    let mut locks = state.deployment_locks.write().await;
-    locks.entry(key)
-        .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
-        .clone()
-}
-
-async fn release_deployment_lock(
-    state: &State,
-    challenge_id: i32,
-    team_id: Option<i32>,
-    lock: Arc<tokio::sync::Mutex<()>>,
-) {
-    // If we're the last holder of this lock (strong_count == 2: one in HashMap, one as parameter),
-    // remove it from the HashMap to prevent memory leak
-    if Arc::strong_count(&lock) == 2 {
-        let key = (challenge_id, team_id);
-        let mut locks = state.deployment_locks.write().await;
-        // Double-check in case another operation just grabbed it
-        if let Some(stored_lock) = locks.get(&key) {
-            if Arc::strong_count(stored_lock) == 2 {
-                locks.remove(&key);
-            }
-        }
-    }
-}
-
 /* db models (sorta) */
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ChallengeDeployment {
@@ -651,12 +609,8 @@ pub async fn deploy_challenge(
 }
 
 pub async fn deploy_challenge_task(state: State, chall: ChallengeDeployment, default_container_lifetime: u64) {
-    // Acquire lock for this specific deployment to prevent race conditions
-    let lock = acquire_deployment_lock(&state, chall.challenge_id, chall.team_id).await;
-    let _guard = lock.lock().await;
-    
     let mut tx = state.db.begin().await.unwrap();
-    if let Err(e) = deploy_challenge(state.clone(), &mut tx, chall.clone(), default_container_lifetime).await {
+    if let Err(e) = deploy_challenge(state, &mut tx, chall.clone(), default_container_lifetime).await {
         error!("Failed to deploy challenge {:?}: {:?}", chall, e);
         sqlx::query!("DELETE FROM challenge_deployments WHERE id = $1", chall.id,)
             .execute(&mut *tx)
@@ -665,12 +619,6 @@ pub async fn deploy_challenge_task(state: State, chall: ChallengeDeployment, def
             .unwrap();
     }
     tx.commit().await.unwrap();
-    
-    // Release guard before cleanup
-    drop(_guard);
-    
-    // Clean up lock if no longer needed
-    release_deployment_lock(&state, chall.challenge_id, chall.team_id, lock).await;
 }
 
 pub async fn destroy_challenge(
@@ -779,21 +727,11 @@ pub async fn destroy_challenge(
 }
 
 pub async fn destroy_challenge_task(state: State, chall: ChallengeDeployment) {
-    // Acquire lock for this specific deployment to prevent race conditions
-    let lock = acquire_deployment_lock(&state, chall.challenge_id, chall.team_id).await;
-    let _guard = lock.lock().await;
-    
     let mut tx = state.db.begin().await.unwrap();
-    if let Err(e) = destroy_challenge(state.clone(), &mut tx, chall.clone()).await {
+    if let Err(e) = destroy_challenge(state, &mut tx, chall.clone()).await {
         error!("Failed to destroy challenge {:?}: {:?}", chall, e);
         // don't commit the tx
     } else {
         tx.commit().await.unwrap();
     }
-    
-    // Release guard before cleanup
-    drop(_guard);
-    
-    // Clean up lock if no longer needed
-    release_deployment_lock(&state, chall.challenge_id, chall.team_id, lock).await;
 }
