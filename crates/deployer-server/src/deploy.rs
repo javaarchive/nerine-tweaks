@@ -623,8 +623,12 @@ pub async fn destroy_challenge(
     chall: ChallengeDeployment,
 ) -> eyre::Result<()> {
     // we check !chall.deployed here in case someone tries to destroy a deployment very fast after creation
-    if chall.destroyed_at.is_some() || !chall.deployed {
-        return Ok(());
+    if chall.destroyed_at.is_some() {
+        return Err(eyre!("Deployment already destroyed"));
+    }
+
+    if !chall.deployed {
+        return Err(eyre!("Can't destroy a deployment that hasn't finished deploying"));
     }
 
     // this will get dropped if the destroy fails
