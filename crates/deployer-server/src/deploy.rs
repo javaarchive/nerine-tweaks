@@ -381,6 +381,19 @@ pub async fn deploy_challenge(
 
     /* TODO: create the network */
     let network_name = calculate_network_name(&chall_data.id, chall_data.strategy, chall.team_id);
+    // if some container is magically longlived due to old bug we kill it
+    for (ct, chall_container) in chall_containers {
+        let container_name =
+            calculate_container_name(&chall_data.id, chall_data.strategy, ct, chall.team_id);
+    
+        ctx.docker.remove_container(&container_name, Some(
+                    RemoveContainerOptionsBuilder::new()
+                        .v(true)
+                        .force(true)
+                        .build())).await.ok();
+    }
+
+    // actually remove old network if something alive / orphaned
     ctx.docker.remove_network(&network_name).await.ok();
     ctx.docker
         .create_network(NetworkCreateRequest {
@@ -447,6 +460,7 @@ pub async fn deploy_challenge(
 
         // 6. create container with tcp mappings
         // TODO: maybe also want to expose http ports if we use networks later
+        // TODO: this code is redundant / duplicated now that we remove old containers earlier to assist with network deletion.
         ctx.docker
             .remove_container(
                 &container_name,
