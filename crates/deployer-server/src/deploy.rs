@@ -2,8 +2,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use bollard::{
     query_parameters::{
-        CreateContainerOptionsBuilder, InspectContainerOptions, RemoveContainerOptionsBuilder,
-        StartContainerOptions,
+        CreateContainerOptionsBuilder, InspectContainerOptions, InspectNetworkOptionsBuilder, RemoveContainerOptionsBuilder, StartContainerOptions
     },
     secret::{
         ContainerCreateBody, EndpointSettings, HostConfig, NetworkCreateRequest, NetworkingConfig,
@@ -339,14 +338,25 @@ pub async fn deploy_challenge(
 
     /* TODO: create the network */
     let network_name = calculate_network_name(&chall_data.id, chall_data.strategy, chall.team_id);
-    ctx.docker.remove_network(&network_name).await.ok();
-    ctx.docker
-        .create_network(NetworkCreateRequest {
-            name: network_name.clone(),
-            ..Default::default()
-        })
-        .await?;
-    _docker_guard.network(&network_name);
+    let existing_network_exists = {
+        // if the existing network exists, we just reuse it to handle past failures
+        // it would actually be removed on the next challenge remove.
+        ctx.docker.inspect_network(&network_name, Some(
+            InspectNetworkOptionsBuilder::new()
+                .verbose(true)
+                .build()
+        )).await.is_ok()
+    };
+    // ctx.docker.remove_network(&network_name).await.ok();
+    if !existing_network_exists {
+        ctx.docker
+            .create_network(NetworkCreateRequest {
+                name: network_name.clone(),
+                ..Default::default()
+            })
+            .await?;
+        _docker_guard.network(&network_name);
+    }
 
     // 5.2. pull the container image if registry is configured properly
     if host_keychain.docker.docker_credentials.is_some() {
@@ -612,7 +622,7 @@ pub async fn destroy_challenge(
     tx: &mut sqlx::PgTransaction<'_>,
     chall: ChallengeDeployment,
 ) -> eyre::Result<()> {
-    if chall.destroyed_at.is_some() {
+    if chall.destroyed_at.is_some() || !chall.deployed {
         return Ok(());
     }
 
