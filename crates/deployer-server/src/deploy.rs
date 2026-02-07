@@ -622,6 +622,7 @@ pub async fn destroy_challenge(
     tx: &mut sqlx::PgTransaction<'_>,
     chall: ChallengeDeployment,
 ) -> eyre::Result<()> {
+    // we check !chall.deployed here in case someone tries to destroy a deployment very fast after creation
     if chall.destroyed_at.is_some() || !chall.deployed {
         return Ok(());
     }
@@ -633,11 +634,6 @@ pub async fn destroy_challenge(
     )
     .execute(&mut **tx)
     .await?;
-
-    // ???
-    if !chall.deployed {
-        return Ok(());
-    }
 
     // ???
     let Some(deploy_data) = &chall.data else {
