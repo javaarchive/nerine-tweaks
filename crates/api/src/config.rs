@@ -65,6 +65,10 @@ pub struct Config {
 
     #[envconfig(from = "EMAIL_DOMAIN_WHITELIST")]
     pub email_domain_whitelist: Option<String>,
+
+    // for debug and tests: disable ratelimits when we have to do something really fast.
+    #[envconfig(from = "DISABLE_RATELIMITS", default = "false")]
+    pub disable_ratelimits: bool,
 }
 
 pub struct StateInner {

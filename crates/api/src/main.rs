@@ -44,7 +44,7 @@ async fn main() -> eyre::Result<()> {
     // .allow_credentials(true);
 
     let app = Router::<State>::new()
-        .nest("/api", api::router())
+        .nest("/api", api::router(&cfg))
         .with_state(State::new(config::StateInner {
             email: email::EmailService::new(&cfg),
             attachment_service: attachments::AttachmentService::new(&cfg),

@@ -390,7 +390,7 @@ async fn get_deployment(
 //     Ok(Json(deployment))
 // }
 
-pub fn router() -> Router<crate::State> {
+pub fn router(config: &crate::config::Config) -> Router<crate::State> {
     let governor_conf = Arc::new(
         GovernorConfigBuilder::default()
             .per_second(4)
@@ -400,6 +400,7 @@ pub fn router() -> Router<crate::State> {
             .unwrap(),
     );
 
+
     let governor_limiter = governor_conf.limiter().clone();
     let interval = Duration::from_secs(60);
     // a separate background task to clean up
@@ -408,14 +409,22 @@ pub fn router() -> Router<crate::State> {
         tracing::info!("rate limiting storage size: {}", governor_limiter.len());
         governor_limiter.retain_recent();
     });
-    let ratelimited = Router::new()
+    let governor_layer = GovernorLayer {
+            config: governor_conf,
+    };
+    
+    let ratelimited_routes = Router::new()
         .route("/submit", post(submit))
         .route("/deploy/new/{chall_id}", post(deploy))
-        .route("/deploy/destroy/{chall_id}", delete(destroy_deployment))
-        .layer(GovernorLayer {
-            config: governor_conf,
-        });
-
+        .route("/deploy/destroy/{chall_id}", delete(destroy_deployment));
+    let ratelimited = {
+        if config.disable_ratelimits {
+            ratelimited_routes
+        } else {
+            ratelimited_routes.layer(governor_layer)
+        }
+    };
+    
     Router::new()
         .merge(ratelimited)
         .route("/", get(list))
