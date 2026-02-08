@@ -123,7 +123,7 @@ async fn destroy_challenge(
     let deployment = deployment.try_into()?;
     state
         .tasks
-        .spawn(deploy::destroy_challenge_task(state.clone(), deployment));
+        .spawn(deploy::destroy_challenge_task(state.clone(), deployment, false));
 
     Ok(())
 }

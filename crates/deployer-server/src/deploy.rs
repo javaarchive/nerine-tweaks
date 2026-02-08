@@ -595,7 +595,7 @@ pub async fn deploy_challenge(
         .try_into()?;
         tokio::spawn(async move {
             tokio::time::sleep(dur).await;
-            destroy_challenge_task(state2, chall2).await;
+            destroy_challenge_task(state2, chall2, true).await;
         });
     }
 
@@ -621,6 +621,7 @@ pub async fn destroy_challenge(
     state: State,
     tx: &mut sqlx::PgTransaction<'_>,
     chall: ChallengeDeployment,
+    automatic: bool,
 ) -> eyre::Result<()> {
     // we check !chall.deployed here in case someone tries to destroy a deployment very fast after creation
     if chall.destroyed_at.is_some() {
@@ -722,9 +723,9 @@ pub async fn destroy_challenge(
     Ok(())
 }
 
-pub async fn destroy_challenge_task(state: State, chall: ChallengeDeployment) {
+pub async fn destroy_challenge_task(state: State, chall: ChallengeDeployment, automatic: bool) {
     let mut tx = state.db.begin().await.unwrap();
-    if let Err(e) = destroy_challenge(state, &mut tx, chall.clone()).await {
+    if let Err(e) = destroy_challenge(state, &mut tx, chall.clone(), automatic).await {
         error!("Failed to destroy challenge {:?}: {:?}", chall, e);
         // don't commit the tx
     } else {

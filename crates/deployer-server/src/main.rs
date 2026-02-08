@@ -62,7 +62,7 @@ async fn main() -> eyre::Result<()> {
             let state_clone = state.clone();
             tokio::spawn(async move {
                 tokio::time::sleep(dur).await;
-                deploy::destroy_challenge_task(state_clone, container).await;
+                deploy::destroy_challenge_task(state_clone, container, true).await;
             });
         } else {
             error!(
