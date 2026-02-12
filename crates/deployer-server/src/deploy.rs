@@ -579,13 +579,15 @@ pub async fn deploy_challenge(
         .execute(&mut **tx)
         .await?;
 
+    debug!("deployment id {} deployed, public id: {} chall id: {} from team id {}", chall.id, chall.public_id, chall.challenge_id, chall.team_id.unwrap_or(-1));
+
     // 12. spawn a task to destroy the challenge after the expiration duration (todo)
     if let Some(expiration_time) = new_expiration_time {
         let dur = (expiration_time - chrono::Utc::now().naive_utc())
             .to_std()
             .unwrap();
         let state2 = state.clone();
-        let chall2 = sqlx::query_as!(
+        let chall2: ChallengeDeployment = sqlx::query_as!(
             ChallengeDeploymentRow,
             "SELECT * FROM challenge_deployments WHERE id = $1",
             chall.id,
@@ -595,6 +597,7 @@ pub async fn deploy_challenge(
         .try_into()?;
         tokio::spawn(async move {
             tokio::time::sleep(dur).await;
+            debug!("destroying challenge by schedule {} public: {} chall id: {} from team id {}", chall2.id, chall2.public_id, chall2.challenge_id, chall2.team_id.unwrap_or(-1));
             destroy_challenge_task(state2, chall2, true).await;
         });
     }
