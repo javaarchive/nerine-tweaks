@@ -7,7 +7,7 @@ use axum::{
 };
 use chrono::NaiveDateTime;
 use deployer_common::challenge::Challenge;
-use log::debug;
+use log::{debug, warn};
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use sqlx::types::JsonValue;
@@ -90,6 +90,10 @@ async fn deploy_challenge(
     tx.commit().await?;
 
     debug!("got back deployment {:?}", deployment);
+
+    if payload.lifetime.is_none() {
+        warn!("no lifetime specified, defaulting to 600 seconds, this could mean the api server is older.");
+    }
 
     // start deploying the chall
     state.tasks.spawn(deploy::deploy_challenge_task(

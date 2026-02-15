@@ -579,7 +579,7 @@ pub async fn deploy_challenge(
         .execute(&mut **tx)
         .await?;
 
-    debug!("deployment id {} deployed, public id: {} chall id: {} from team id {}", chall.id, chall.public_id, chall.challenge_id, chall.team_id.unwrap_or(-1));
+    debug!("deployment id {} deployed, public id: {} chall id: {} from team id {} expires in {} secs", chall.id, chall.public_id, chall.challenge_id, chall.team_id.unwrap_or(-1), container_lifetime);
 
     // 12. spawn a task to destroy the challenge after the expiration duration (todo)
     if let Some(expiration_time) = new_expiration_time {
