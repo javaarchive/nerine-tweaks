@@ -487,6 +487,14 @@ pub async fn deploy_challenge(
                         privileged: chall_container.privileged.clone(),
                         ..Default::default()
                     }),
+                    labels: Some(HashMap::from([
+                        ("nerine-challenge-id".to_owned(), chall_data.id.to_owned()),
+                        ("nerine-team-id".to_owned(), chall.team_id.unwrap_or(-1).to_string()),
+                        ("nerine-deployment-strategy".to_owned(), match chall_data.strategy {
+                            DeploymentStrategy::Static => "static".to_string(),
+                            DeploymentStrategy::Instanced => "instanced".to_string(),
+                        })
+                    ])),
                     ..Default::default()
                 },
             )
