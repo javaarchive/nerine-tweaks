@@ -316,6 +316,7 @@ async fn main() -> Result<()> {
         } => {
             let valid_challs: Vec<DeployableChallenge> = get_all_challs(&paths)
                 .filter(|c| c.chall.container.is_some())
+                // TODO: skip build if build key doesn't exist (for future "image" key)
                 .filter(|c| all || c.chall.build_group == build_group)
                 .collect();
             println!("Building following challenges:");
@@ -345,7 +346,6 @@ async fn main() -> Result<()> {
 
             for chall in valid_challs {
                 println!("building chall {}", chall.chall.id);
-                // TODO i suspect this might not be working
                 if !local {
                     chall.pull(&ctx).await?;
                 }
@@ -355,7 +355,7 @@ async fn main() -> Result<()> {
                             println!("pushing chall {}", chall.chall.id);
                             chall.push(&ctx).await?;
                         } else {
-                            println!("skipping pushing chall {} due to local flag", chall.chall.id);
+                            println!("skipping pushing chall {} to registry due to local flag being set", chall.chall.id);
                         }
                     }
                     Err(e) => eprintln!("failed to build {}: {e:?}", chall.chall.id),
@@ -409,6 +409,7 @@ async fn main() -> Result<()> {
 
                 for ref dc in get_all_challs(&paths).filter(|c| c.chall.build_group == build_group)
                 {
+                    println!("Processing chall {}", dc.chall.name);
                     let DeployableChallenge { chall, root } = dc;
                     let attachments = if null_attachments {
                         HashMap::new()
