@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bollard = "0.19.0"
+bollard = { version = "0.19.0", features = ["ssl", "buildkit"] }
 clap = { version = "4.5.40", features = ["derive"] }
 deployer-common = { path = "../deployer-common", package = "nerine-deployer-common" }
 dialoguer = "0.11.0"

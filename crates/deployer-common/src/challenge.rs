@@ -203,6 +203,20 @@ pub struct DeployableChallenge {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ExperimentalOptions {
+    #[serde(default)]
+    pub use_docker_buildkit: bool,
+}
+
+impl Default for ExperimentalOptions {
+    fn default() -> Self {
+        Self {
+            use_docker_buildkit: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 /// Serializable version of [super::DeployableContext].
 pub struct DeployableContextData {
     // TODO(aiden): rename to daemon
@@ -211,6 +225,8 @@ pub struct DeployableContextData {
     // TODO(aiden): image_prefix and repo are basically the same thing iirc? get rid of image_prefix
     pub image_prefix: String,
     pub repo: String,
+    #[serde(default)]
+    pub experimental: ExperimentalOptions,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -275,6 +291,7 @@ impl TryInto<DeployableContext> for DeployableContextData {
             docker_credentials: self.docker_credentials,
             image_prefix: self.image_prefix,
             repo: self.repo,
+            experimental: self.experimental,
         })
     }
 }
@@ -286,6 +303,7 @@ pub struct DeployableContext {
     pub docker_credentials: Option<bollard::auth::DockerCredentials>,
     pub image_prefix: String,
     pub repo: String,
+    pub experimental: ExperimentalOptions,
 }
 
 pub fn is_valid_id(id: &str) -> bool {
@@ -342,7 +360,13 @@ impl DeployableChallenge {
             .t(&self.chall.image_id(ctx, ct))
             .forcerm(true)
             .rm(true)
+            .version(if ctx.experimental.use_docker_buildkit {
+                bollard::query_parameters::BuilderVersion::BuilderBuildKit
+            } else {
+                bollard::query_parameters::BuilderVersion::BuilderV1
+            })
             .build();
+
         let tar_file_r = File::open(&context_tar_path).await?;
         let tar_file_r = ReaderStream::new(tar_file_r);
         let mut build =
