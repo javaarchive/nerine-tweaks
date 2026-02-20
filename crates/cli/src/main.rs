@@ -346,6 +346,10 @@ async fn main() -> Result<()> {
                 },
             };
 
+            if ctx.experimental.use_docker_buildkit {
+                println!("Using experimental docker buildkit support...this has not been tested much!");
+            }
+
             for chall in valid_challs {
                 println!("building chall {}", chall.chall.id);
                 if !local {

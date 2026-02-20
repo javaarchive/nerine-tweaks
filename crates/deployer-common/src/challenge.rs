@@ -355,6 +355,8 @@ impl DeployableChallenge {
             tar_.finish()?;
         }
 
+        let session_id = format!("{}-{}", self.chall.id, ct);
+
         let options = bollard::query_parameters::BuildImageOptionsBuilder::new()
             // FIXME(ani): idk if it's ideal to tag the image with the repo name in build
             .t(&self.chall.image_id(ctx, ct))
@@ -365,6 +367,7 @@ impl DeployableChallenge {
             } else {
                 bollard::query_parameters::BuilderVersion::BuilderV1
             })
+            .session(&session_id)
             .build();
 
         let tar_file_r = File::open(&context_tar_path).await?;
