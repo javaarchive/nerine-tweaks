@@ -10,8 +10,7 @@ use std::{
 use bollard::auth::DockerCredentials;
 use clap::{Parser, Subcommand, command};
 use deployer_common::challenge::{
-    Challenge, Container, DeployableChallenge, DeployableContext, DeploymentStrategy, ExposeType,
-    Flag, PointRange, is_valid_id,
+    Challenge, Container, DeployableChallenge, DeployableContext, DeploymentStrategy, ExperimentalOptions, ExposeType, Flag, PointRange, is_valid_id
 };
 use deployer_common::uploader::Uploader;
 use dialoguer::{Select, theme::SimpleTheme};
@@ -342,7 +341,9 @@ async fn main() -> Result<()> {
                 },
                 image_prefix: "".to_string(),
                 repo: env::var("DOCKER_REPO")?,
-                experimental: Default::default(),
+                experimental: ExperimentalOptions {
+                    use_docker_buildkit: env::var("USE_EXP_DOCKER_BUILDKIT").is_ok(),
+                },
             };
 
             for chall in valid_challs {
