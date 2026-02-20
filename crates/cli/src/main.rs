@@ -342,6 +342,7 @@ async fn main() -> Result<()> {
                 },
                 image_prefix: "".to_string(),
                 repo: env::var("DOCKER_REPO")?,
+                experimental: Default::default(),
             };
 
             for chall in valid_challs {
