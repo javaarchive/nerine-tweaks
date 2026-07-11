@@ -736,7 +736,26 @@ pub async fn destroy_challenge(
 
 pub async fn destroy_challenge_task(state: State, chall: ChallengeDeployment, automatic: bool) {
     let mut tx = state.db.begin().await.unwrap();
-    if let Err(e) = destroy_challenge(state, &mut tx, chall.clone(), automatic).await {
+    let current = match sqlx::query_as!(
+        ChallengeDeploymentRow,
+        "SELECT * FROM challenge_deployments WHERE id = $1",
+        chall.id,
+    )
+    .fetch_optional(&mut *tx)
+    .await
+    .unwrap()
+    {
+        Some(row) => match row.try_into() {
+            Ok(chall) => chall,
+            Err(e) => {
+                error!("Failed to load challenge {:?}: {:?}", chall, e);
+                return;
+            }
+        },
+        None => return,
+    };
+
+    if let Err(e) = destroy_challenge(state, &mut tx, current, automatic).await {
         error!("Failed to destroy challenge {:?}: {:?}", chall, e);
         // don't commit the tx
     } else {
