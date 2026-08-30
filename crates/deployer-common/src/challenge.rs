@@ -58,7 +58,30 @@ pub struct PointRange {
 }
 
 impl Challenge {
+
+    pub fn can_build(&self, ct: &str) -> bool {
+        if let Some(containers) = &self.container {
+            if let Some(container) = containers.get(ct) {
+                if let ImageOrBuild::Image { image } = &container.source {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     pub fn image_id(&self, ctx: &DeployableContext, ct: &str) -> String {
+        // use external image.
+        if let Some(containers) = &self.container {
+            if let Some(container) = containers.get(ct) {
+                if let ImageOrBuild::Image { image } = &container.source {
+                    return image.clone();
+                }
+            }
+        }
+
+        // use registry.
+
         if ct == "default" {
             format!("{}/{}{}", ctx.repo, ctx.image_prefix, self.id)
         } else {
@@ -67,6 +90,11 @@ impl Challenge {
     }
 
     pub async fn push_ct(&self, ctx: &DeployableContext, ct: &str) -> Result<()> {
+
+        if !self.can_build(ct) {
+            return Ok(());
+        }
+
         // TODO: support credentials
         let mut push = ctx.docker.push_image(
             &self.image_id(ctx, ct),
@@ -98,6 +126,7 @@ impl Challenge {
         let options = CreateImageOptionsBuilder::new()
             .from_image(&self.image_id(ctx, ct))
             .build();
+
         let mut pull = ctx
             .docker
             .create_image(Some(options), None, ctx.docker_credentials.clone());
@@ -152,10 +181,52 @@ fn default_archive_name() -> String {
     "chall".to_owned()
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum BuildSpec {
+    Simple(PathBuf),           // build: ./context
+    Detailed {                // build: { context: ..., dockerfile: ... }
+        context: PathBuf,
+        dockerfile: Option<String>, // TODO: honestly it's kinda inconsistent that this is a plain string but this is just what is easy to pass to bollard atm.
+    },
+}
+
+impl BuildSpec {
+    pub fn get_context(&self) -> &PathBuf {
+        // get context dir relative to chall dir.
+        match self {
+            BuildSpec::Simple(context) => context,
+            BuildSpec::Detailed { context, .. } => context,
+        }
+    }
+
+    pub fn get_dockerfile(&self) -> &str {
+        // get dockerfile relative to chall dir.
+        match self {
+            BuildSpec::Simple(_) => "Dockerfile",
+            BuildSpec::Detailed { dockerfile, .. } => {
+                if let Some(dockerfile) = dockerfile {
+                    dockerfile
+                } else {
+                    "Dockerfile"
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum ImageOrBuild {
+    Image { image: String },
+    Build { build: BuildSpec },
+}
+
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Container {
-    pub build: PathBuf,
+    #[serde(flatten)]
+    pub source: ImageOrBuild,
     #[serde(default)]
     pub limits: Limits,
     pub env: Option<HashMap<String, String>>,
@@ -337,6 +408,17 @@ impl DeployableChallenge {
             return Ok(None);
         };
 
+        let build_spec = match &chall_container.source {
+            ImageOrBuild::Image { image } => {
+                // TODO: this is kinda troll, let's try to not do this?
+                // the ultimate goal is to ensure the image exists where we want it to be.
+                self.chall.pull_ct(ctx, ct).await?;
+                return Ok(None)
+            }, 
+            ImageOrBuild::Build { build } => build,
+        };
+        let context_path = build_spec.get_context();
+
         let tmp = TempDir::new(&self.chall.id)?;
         let context_tar_path = tmp.path().join("docker.tar");
         {
@@ -344,7 +426,7 @@ impl DeployableChallenge {
             let tar_file = StdFile::create(&context_tar_path)?;
             let mut tar_ = tar::Builder::new(tar_file);
             tar_.sparse(false);
-            let context_dir_path = self.root.join(&chall_container.build);
+            let context_dir_path = self.root.join(&context_path);
             tar_.append_dir_all(".", &context_dir_path)
                 .with_context(|| {
                     format!(
@@ -360,6 +442,7 @@ impl DeployableChallenge {
         let options = bollard::query_parameters::BuildImageOptionsBuilder::new()
             // FIXME(ani): idk if it's ideal to tag the image with the repo name in build
             .t(&self.chall.image_id(ctx, ct))
+            .dockerfile(build_spec.get_dockerfile())
             .forcerm(true)
             .rm(true)
             .version(if ctx.experimental.use_docker_buildkit {

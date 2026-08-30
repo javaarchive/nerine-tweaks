@@ -10,7 +10,7 @@ use std::{
 use bollard::auth::DockerCredentials;
 use clap::{Parser, Subcommand, command};
 use deployer_common::challenge::{
-    Challenge, Container, DeployableChallenge, DeployableContext, DeploymentStrategy, ExperimentalOptions, ExposeType, Flag, PointRange, is_valid_id
+    BuildSpec, Challenge, Container, DeployableChallenge, DeployableContext, DeploymentStrategy, ExperimentalOptions, ExposeType, Flag, ImageOrBuild, PointRange, is_valid_id
 };
 use deployer_common::uploader::Uploader;
 use dialoguer::{Select, theme::SimpleTheme};
@@ -256,10 +256,10 @@ async fn main() -> Result<()> {
             // expose.insert(expose_port, expose_type);
 
             let container = Container {
-                build: dockerfile_path
+                source: ImageOrBuild::Build { build: BuildSpec::Simple(dockerfile_path
                     .strip_prefix(&path)
                     .unwrap_or(&dockerfile_path)
-                    .to_owned(),
+                    .to_owned()) },
                 limits: Default::default(),
                 env: None,
                 expose: Some({
