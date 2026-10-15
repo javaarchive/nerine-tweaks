@@ -7,7 +7,7 @@ use std::{
     collections::HashMap,
     fs::{self, File as StdFile},
     io::Read,
-    path::PathBuf,
+    path::{Component, Path, PathBuf},
 };
 
 use futures_util::StreamExt;
@@ -187,13 +187,14 @@ pub enum BuildSpec {
     Simple(PathBuf),           // build: ./context
     Detailed {                // build: { context: ..., dockerfile: ... }
         context: PathBuf,
+        // relative to `context` (same as docker compose), since only the context dir is sent to the daemon.
         dockerfile: Option<String>, // TODO: honestly it's kinda inconsistent that this is a plain string but this is just what is easy to pass to bollard atm.
     },
 }
 
 impl BuildSpec {
     pub fn get_context(&self) -> &PathBuf {
-        // get context dir relative to chall dir.
+        // context dir, relative to chall dir.
         match self {
             BuildSpec::Simple(context) => context,
             BuildSpec::Detailed { context, .. } => context,
@@ -201,7 +202,7 @@ impl BuildSpec {
     }
 
     pub fn get_dockerfile(&self) -> &str {
-        // get dockerfile relative to chall dir.
+        // dockerfile path, relative to the context dir (not the chall dir).
         match self {
             BuildSpec::Simple(_) => "Dockerfile",
             BuildSpec::Detailed { dockerfile, .. } => {
@@ -427,6 +428,17 @@ impl DeployableChallenge {
             let mut tar_ = tar::Builder::new(tar_file);
             tar_.sparse(false);
             let context_dir_path = self.root.join(&context_path);
+            let dockerfile = build_spec.get_dockerfile();
+            let escapes_context = Path::new(dockerfile)
+                .components()
+                .any(|c| !matches!(c, Component::Normal(_) | Component::CurDir));
+            if escapes_context || !context_dir_path.join(dockerfile).is_file() {
+                return Err(eyre!(
+                    "Dockerfile {} not found in build context {} (dockerfile paths are relative to the context)",
+                    dockerfile,
+                    context_dir_path.display()
+                ));
+            }
             tar_.append_dir_all(".", &context_dir_path)
                 .with_context(|| {
                     format!(
