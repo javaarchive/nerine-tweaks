@@ -358,18 +358,10 @@ pub async fn deploy_challenge(
         _docker_guard.network(&network_name);
     }
 
-    // 5.2. pull the container image if registry is configured properly
+    // 5.2. pull the container image (credentials are optional for public images)
+    chall_data.pull(&ctx).await?;
 
-    // NOTE: with no registry creds we skip pulling here and rely on the image
-    // already being on this daemon (e.g. a prior build/pull ran against the same
-    // shared daemon). External `image:` sources on a fresh, registry-less host
-    // will fail container creation.
-
-    if host_keychain.docker.docker_credentials.is_some() {
-        chall_data.pull(&ctx).await?;
-
-        debug!("pulled image, creating...");
-    }
+    debug!("pulled image, creating...");
 
     for (ct, chall_container) in chall_containers {
         // 4. calculate the container name
